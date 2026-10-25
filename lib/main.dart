@@ -20,6 +20,7 @@ import 'package:lisku/model/knowledge_models.dart';
 import 'package:lisku/services/notification_service.dart';
 import 'package:lisku/services/ai_server_controller.dart';
 import 'package:lisku/services/ai_chat_repository.dart';
+import 'package:lisku/services/knowledge_service.dart';
 
 // ============= IMPORT PAGES =============
 import 'package:lisku/pages/ai_assistant_page.dart';
@@ -868,6 +869,7 @@ void main() async {
   Hive.registerAdapter(KnowledgeSourceAdapter());
   try {
     await AiChatRepository.open();
+    await KnowledgeService.open();
   } catch (e) {
     debugPrint('⚠️ Gagal membuka riwayat chat AI: $e');
   }

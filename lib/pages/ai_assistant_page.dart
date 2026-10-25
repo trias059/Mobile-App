@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:lisku/pages/ai_chat_page.dart';
+import 'package:lisku/pages/ai_insight_page.dart';
+import 'package:lisku/pages/ai_knowledge_page.dart';
 import 'package:lisku/pages/ai_settings_page.dart';
 import 'package:lisku/services/ai_personas.dart';
 import 'package:lisku/services/ai_server_controller.dart';
@@ -93,6 +95,20 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
             subtitle: persona.description,
             onTap: () => open(AiChatPage(initialPersona: persona.key)),
           ),
+        _menuTile(
+          icon: Icons.lightbulb,
+          color: Colors.amber.shade800,
+          title: 'Insight',
+          subtitle: 'Catatan pribadi yang ikut dipelajari AI',
+          onTap: () => open(const AiInsightPage()),
+        ),
+        _menuTile(
+          icon: Icons.library_books,
+          color: Colors.deepPurple,
+          title: 'Kelola Pengetahuan',
+          subtitle: 'Impor e-book PDF, lihat & hapus buku dan catatan',
+          onTap: () => open(const AiKnowledgePage()),
+        ),
         _menuTile(
           icon: Icons.tune,
           color: Colors.blueGrey,

@@ -9,10 +9,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:lisku/model/ai_chat_message.dart';
+import 'package:lisku/pages/ai_knowledge_page.dart';
 import 'package:lisku/pages/ai_settings_page.dart';
 import 'package:lisku/services/ai_chat_repository.dart';
 import 'package:lisku/services/ai_personas.dart';
 import 'package:lisku/services/ai_server_controller.dart';
+import 'package:lisku/services/knowledge_service.dart';
 import 'package:lisku/services/llm_service.dart';
 
 class AiChatPage extends StatefulWidget {
@@ -26,12 +28,16 @@ class AiChatPage extends StatefulWidget {
 
 class _AiChatPageState extends State<AiChatPage> {
   late final AiServerController _ai;
+  late final KnowledgeService _knowledge;
   final TextEditingController _input = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
   late AiPersona _persona;
   List<AiChatMessage> _messages = [];
   final Set<String> _openReasoning = {};
+  final Set<String> _openCorrection = {};
+  final Set<String> _savedInsight = {};
+  final Map<String, TextEditingController> _correctionControllers = {};
 
   // Status streaming
   bool _streaming = false;
@@ -52,6 +58,7 @@ class _AiChatPageState extends State<AiChatPage> {
   void initState() {
     super.initState();
     _ai = context.read<AiServerController>();
+    _knowledge = KnowledgeService(_ai.llm);
     _persona = AiPersona.byKey(widget.initialPersona);
     _loadMessages();
     WidgetsBinding.instance.addPostFrameCallback((_) => _ai.attachPage());
@@ -64,6 +71,9 @@ class _AiChatPageState extends State<AiChatPage> {
     _subscription?.cancel();
     _input.dispose();
     _scroll.dispose();
+    for (final c in _correctionControllers.values) {
+      c.dispose();
+    }
     _ai.detachPage();
     super.dispose();
   }
@@ -133,11 +143,35 @@ class _AiChatPageState extends State<AiChatPage> {
     }
   }
 
-  /// Prompt + daftar sumber (untuk Guru e-book).
+  /// Prompt + daftar sumber. Guru e-book: ambil 3 potongan termirip sebagai konteks.
   Future<_Prompt?> _buildPrompt(List<AiChatMessage> history, String text) async {
+    if (!_persona.usesKnowledge) {
+      return _Prompt(
+        AiChatRepository.buildPrompt(persona: _persona, history: history, userText: text),
+        const [],
+      );
+    }
+
+    if (KnowledgeService.isEmpty) {
+      _content.write('Belum ada buku atau catatan untuk dipelajari. Impor PDF di '
+          '"Kelola Pengetahuan" atau tambahkan catatan di "Insight", lalu tanya lagi.');
+      await _finishStream(text, const []);
+      return null;
+    }
+    if (!await _ai.ensureEmbedReady()) {
+      await _finishWithError(text, 'Server embedding (port 8081) belum siap. Coba lagi sebentar.');
+      return null;
+    }
+    final retrieved = await _knowledge.retrieve(text);
     return _Prompt(
-      AiChatRepository.buildPrompt(persona: _persona, history: history, userText: text),
-      const [],
+      // Konteks buku sudah besar, jadi riwayat chat tidak ikut dikirim.
+      AiChatRepository.buildPrompt(
+        persona: _persona,
+        history: const [],
+        userText: text,
+        context: retrieved.promptText,
+      ),
+      retrieved.sourceLabels,
     );
   }
 
@@ -263,6 +297,15 @@ class _AiChatPageState extends State<AiChatPage> {
         backgroundColor: _persona.color,
         foregroundColor: Colors.white,
         actions: [
+          if (_persona.usesKnowledge)
+            IconButton(
+              tooltip: 'Kelola Pengetahuan',
+              icon: const Icon(Icons.library_books),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AiKnowledgePage()),
+              ),
+            ),
           IconButton(
             tooltip: 'Pengaturan AI',
             icon: const Icon(Icons.tune),
@@ -523,7 +566,30 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   List<Widget> _buildAssistantFooter(AiChatMessage msg, bool showReasoning) {
+    final showCorrection = _openCorrection.contains(msg.id);
     return [
+      if (msg.sources.isNotEmpty)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.deepPurple[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Sumber',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.deepPurple[700])),
+              for (final source in msg.sources)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(source, style: TextStyle(fontSize: 12, color: Colors.deepPurple[900])),
+                ),
+            ],
+          ),
+        ),
       if (showReasoning && msg.reasoning.isNotEmpty)
         Container(
           width: double.infinity,
@@ -552,6 +618,20 @@ class _AiChatPageState extends State<AiChatPage> {
             ),
           if (!msg.isError)
             _SmallButton(
+              icon: _savedInsight.contains(msg.id) ? Icons.check : Icons.bookmark_add_outlined,
+              label: _savedInsight.contains(msg.id) ? 'Tersimpan' : 'Simpan sebagai insight',
+              onTap: () => _saveAsInsight(msg),
+            ),
+          if (!msg.isError)
+            _SmallButton(
+              icon: Icons.edit_note,
+              label: 'Koreksi',
+              onTap: () => setState(() {
+                showCorrection ? _openCorrection.remove(msg.id) : _openCorrection.add(msg.id);
+              }),
+            ),
+          if (!msg.isError)
+            _SmallButton(
               icon: Icons.copy,
               label: 'Salin',
               onTap: () {
@@ -563,7 +643,88 @@ class _AiChatPageState extends State<AiChatPage> {
             ),
         ],
       ),
+      if (showCorrection) _buildCorrectionField(msg),
     ];
+  }
+
+  Widget _buildCorrectionField(AiChatMessage msg) {
+    final controller = _correctionControllers.putIfAbsent(msg.id, TextEditingController.new);
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              minLines: 1,
+              maxLines: 4,
+              onChanged: (_) => _ai.touch(),
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                hintText: 'Tulis koreksi: jawaban yang benar...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Simpan koreksi',
+            icon: const Icon(Icons.save, color: Colors.deepPurple),
+            onPressed: () => _saveCorrection(msg, controller),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveAsInsight(AiChatMessage msg) async {
+    if (_savedInsight.contains(msg.id)) return;
+    final question = msg.question ?? '';
+    await _saveNote(
+      title: question.isEmpty ? '' : 'Insight: $question',
+      text: question.isEmpty ? msg.content : 'Pertanyaan: $question\n\nJawaban: ${msg.content}',
+      onSaved: () => _savedInsight.add(msg.id),
+      successText: 'Disimpan sebagai insight',
+    );
+  }
+
+  Future<void> _saveCorrection(AiChatMessage msg, TextEditingController controller) async {
+    final correction = controller.text.trim();
+    if (correction.isEmpty) return;
+    final question = msg.question ?? '';
+    await _saveNote(
+      title: 'Koreksi: ${question.isEmpty ? 'jawaban AI' : question}',
+      text: 'Pertanyaan: $question\n'
+          'Koreksi dari pengguna (lebih benar dari jawaban AI sebelumnya): $correction',
+      onSaved: () {
+        controller.clear();
+        _openCorrection.remove(msg.id);
+      },
+      successText: 'Koreksi disimpan sebagai insight',
+    );
+  }
+
+  Future<void> _saveNote({
+    required String title,
+    required String text,
+    required VoidCallback onSaved,
+    required String successText,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    _ai.beginBusy();
+    try {
+      if (!await _ai.ensureEmbedReady()) {
+        throw KnowledgeException('Server embedding belum siap. ${_ai.errorMessage}');
+      }
+      await _knowledge.addNote(title: title, text: text);
+      if (mounted) setState(onSaved);
+      messenger.showSnackBar(SnackBar(content: Text(successText)));
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e')));
+    } finally {
+      _ai.endBusy();
+    }
   }
 
   Widget _buildInput() {

@@ -47,3 +47,25 @@ Keputusan yang diambil saat implementasi tanpa konfirmasi, beserta alasannya.
 19. **Sampling chat**: temperature 0.6, top_p 0.95, top_k 20 (rekomendasi Qwen3 mode berpikir).
 20. **Hive typeId baru**: 50 (`AiChatMessage`), 51 (`KnowledgeChunk`), 52 (`KnowledgeSource`) —
     jauh dari typeId yang sudah dipakai (0–26).
+21. **Ekstraksi PDF: `syncfusion_flutter_pdf`** (pure Dart, jalan di isolate lewat `compute`,
+    tidak butuh binary native). Lisensinya Syncfusion Community License — gratis untuk
+    individu/usaha kecil; jika tidak cocok, cukup ganti `pdf_text_extractor.dart`.
+    PDF hasil scan (tanpa teks) ditolak dengan pesan yang jelas (tidak ada OCR).
+22. **Chunking lintas halaman.** Kata dari semua halaman digabung, dipotong 500 kata
+    (overlap 50); tiap potongan menyimpan halaman awal & akhir ("hal. 12–13"). Sisa ekor
+    < 50 kata digabung ke potongan sebelumnya agar tidak ada potongan kecil tak berguna.
+23. **Prefix EmbeddingGemma**: dokumen `title: <judul> | text: <isi>`, pertanyaan
+    `task: search result | query: <pertanyaan>` (format yang direkomendasikan model).
+24. **Embedding satu potongan per request** agar progres impor akurat dan satu potongan
+    selalu muat di ubatch 2048. Bila gagal di tengah, potongan yang sudah tersimpan
+    di-rollback sehingga tidak ada buku setengah jadi. Impor bisa dibatalkan.
+25. **Guru e-book tidak mengirim riwayat chat** ke model; 3 potongan × ±500 kata sudah
+    memakai sebagian besar konteks 4096 token.
+26. **Indeks gabungan.** Catatan pribadi/insight disimpan di box yang sama dengan potongan
+    buku (`sourceType: note`), jadi pencarian top-3 mencakup keduanya; labelnya
+    "(catatan pribadi)".
+27. **Koreksi jawaban** disimpan sebagai insight berjudul "Koreksi: <pertanyaan>", sehingga
+    di pertanyaan berikutnya Guru e-book bisa mengambil koreksi tersebut sebagai konteks.
+    Kolom koreksi muncul setelah menekan tombol "Koreksi" agar bubble tetap ringkas.
+28. **Vektor disimpan sebagai `List<double>` di Hive** dan dicari secara linear di memori.
+    Cukup cepat untuk ribuan potongan di HP; tidak perlu vector DB.
