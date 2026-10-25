@@ -3,10 +3,14 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Asisten AI: akses llama-server lokal (127.0.0.1) & perintah ke Termux -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND"/>
     <application
         android:label="lisku"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <receiver android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
         <receiver android:exported="false"
@@ -16,6 +20,9 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
         </receiver>
+        <!-- Menerima hasil perintah RUN_COMMAND dari Termux (lewat PendingIntent) -->
+        <receiver android:exported="false"
+            android:name=".TermuxResultReceiver" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -50,6 +57,8 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Android 11+: agar bisa mendeteksi Termux terinstall -->
+        <package android:name="com.termux"/>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

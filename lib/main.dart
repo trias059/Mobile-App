@@ -16,6 +16,10 @@ import 'package:lisku/model/fitness_models.dart';
 
 // ============= IMPORT SERVICES =============
 import 'package:lisku/services/notification_service.dart';
+import 'package:lisku/services/ai_server_controller.dart';
+
+// ============= IMPORT PAGES =============
+import 'package:lisku/pages/ai_assistant_page.dart';
 
 // ============= TASK PROVIDER (DENGAN ANTI-DUPLIKASI) =============
 class TaskProvider extends ChangeNotifier {
@@ -275,6 +279,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Center(child: Text('Fitness (Coming Soon)', style: TextStyle(fontSize: 20))),
     Center(child: Text('Finance (Coming Soon)', style: TextStyle(fontSize: 20))),
     Center(child: Text('Notes (Coming Soon)', style: TextStyle(fontSize: 20))),
+    const AiAssistantPage(),
   ];
 
   @override
@@ -303,6 +308,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.note),
             label: 'Catatan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.smart_toy),
+            label: 'AI',
           ),
         ],
       ),
@@ -870,6 +879,9 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(
           create: (_) => TaskProvider()..init(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AiServerController()..init(),
         ),
       ],
       child: MaterialApp(
