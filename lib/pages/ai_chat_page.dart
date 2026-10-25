@@ -824,7 +824,13 @@ class _SmallButton extends StatelessWidget {
           children: [
             Icon(icon, size: 14, color: Colors.grey[600]),
             const SizedBox(width: 4),
-            Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+              ),
+            ),
             const SizedBox(width: 6),
           ],
         ),

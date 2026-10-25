@@ -69,3 +69,10 @@ Keputusan yang diambil saat implementasi tanpa konfirmasi, beserta alasannya.
     Kolom koreksi muncul setelah menekan tombol "Koreksi" agar bubble tetap ringkas.
 28. **Vektor disimpan sebagai `List<double>` di Hive** dan dicari secara linear di memori.
     Cukup cepat untuk ribuan potongan di HP; tidak perlu vector DB.
+29. **Uji widget (smoke test) untuk semua halaman AI** ditambahkan selain unit test yang
+    diminta, untuk menangkap error layout/runtime tanpa HP (sudah menemukan & memperbaiki
+    overflow pada tombol kecil di bubble jawaban).
+30. **`flutter build apk --release` belum bisa diverifikasi di lingkungan CI/cloud ini**:
+    unduhan Android SDK dari `dl.google.com` diblokir kebijakan jaringan lingkungan ini.
+    `flutter analyze` (0 error) dan `flutter test` sudah dijalankan. Build APK perlu
+    dijalankan di mesin dengan Android SDK (lihat docs/CARA-PAKAI.md).

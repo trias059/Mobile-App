@@ -19,6 +19,8 @@ String chunk({String? reasoning, String? content, String? finish}) {
       })}\n\n';
 }
 
+const String done = 'data: [DONE]\n\n';
+
 void main() {
   group('SseLineDecoder', () {
     test('menggabungkan baris yang terpotong antar chunk', () {
@@ -47,7 +49,7 @@ void main() {
           chunk(reasoning: 'tentang tidur.') +
           chunk(content: 'Tidurlah ') +
           chunk(content: '7-9 jam.', finish: 'stop') +
-          'data: [DONE]\n\n');
+          done);
       final reasoning = deltas.map((d) => d.reasoning).join();
       final content = deltas.map((d) => d.content).join();
       expect(reasoning, 'Pengguna bertanya tentang tidur.');
@@ -57,7 +59,7 @@ void main() {
     });
 
     test('tahan terhadap chunk jaringan yang memotong JSON di tengah', () {
-      final full = chunk(reasoning: 'mikir') + chunk(content: 'jawab') + 'data: [DONE]\n\n';
+      final full = chunk(reasoning: 'mikir') + chunk(content: 'jawab') + done;
       final p = ChatStreamParser();
       final deltas = <ChatDelta>[];
       for (var i = 0; i < full.length; i += 7) {
