@@ -35,3 +35,15 @@ Keputusan yang diambil saat implementasi tanpa konfirmasi, beserta alasannya.
     tidak pernah cocok dengan aplikasi ini (gagal kompilasi). Diganti unit test AI.
 13. **`lib/task_system_complete.dart` dikecualikan dari analyzer.** File referensi lama yang
     tidak di-import di mana pun dan `part`-nya tidak ada; file tidak diubah/dihapus.
+14. **Chat: riwayat yang dikirim ke model** dibatasi 6 pesan / ±4000 karakter terakhir
+    per peran, karena konteks server hanya 4096 token (thinking juga memakai token).
+15. **Riwayat chat per peran.** Tiap peran (Penasihat, Etika chat, Guru e-book) punya
+    riwayat sendiri di box `ai_chat_messages`; bisa dihapus per peran dari menu ⋮.
+16. **Jawaban per kata** dianimasikan di UI (±35 ms per kata, mempercepat diri bila
+    tertinggal dari model), sementara jawaban lengkap langsung disimpan ke Hive.
+17. **Tombol Stop** membatalkan stream; jawaban parsial disimpan dengan akhiran "…".
+18. **Format teks** hanya mendukung `**tebal**` (tanpa paket markdown tambahan) agar
+    dependensi minimal.
+19. **Sampling chat**: temperature 0.6, top_p 0.95, top_k 20 (rekomendasi Qwen3 mode berpikir).
+20. **Hive typeId baru**: 50 (`AiChatMessage`), 51 (`KnowledgeChunk`), 52 (`KnowledgeSource`) —
+    jauh dari typeId yang sudah dipakai (0–26).

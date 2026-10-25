@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import 'package:lisku/pages/ai_chat_page.dart';
+import 'package:lisku/pages/ai_settings_page.dart';
+import 'package:lisku/services/ai_personas.dart';
 import 'package:lisku/services/ai_server_controller.dart';
 import 'package:lisku/services/termux_service.dart';
 
@@ -54,6 +57,8 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
               AiErrorCard(ai: ai),
               const SizedBox(height: 16),
             ],
+            _buildMenu(),
+            const SizedBox(height: 16),
             _buildSetupCard(ai),
           ],
         ),
@@ -70,6 +75,58 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
         SnackBar(content: Text(notice), duration: const Duration(seconds: 5)),
       );
     });
+  }
+
+  Widget _buildMenu() {
+    void open(Widget page) => Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Mau dibantu apa?', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        for (final persona in AiPersona.all)
+          _menuTile(
+            icon: persona.icon,
+            color: persona.color,
+            title: persona.name,
+            subtitle: persona.description,
+            onTap: () => open(AiChatPage(initialPersona: persona.key)),
+          ),
+        _menuTile(
+          icon: Icons.tune,
+          color: Colors.blueGrey,
+          title: 'Pengaturan AI',
+          subtitle: 'Pilih model Default / Uncensored',
+          onTap: () => open(const AiSettingsPage()),
+        ),
+      ],
+    );
+  }
+
+  Widget _menuTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: ListTile(
+        onTap: onTap,
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
   }
 
   Widget _buildSetupCard(AiServerController ai) {

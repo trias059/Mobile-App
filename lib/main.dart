@@ -13,10 +13,13 @@ import 'package:lisku/model/goal_task.dart';
 import 'package:lisku/model/note_model.dart';
 import 'package:lisku/model/transaction_model.dart';
 import 'package:lisku/model/fitness_models.dart';
+import 'package:lisku/model/ai_chat_message.dart';
+import 'package:lisku/model/knowledge_models.dart';
 
 // ============= IMPORT SERVICES =============
 import 'package:lisku/services/notification_service.dart';
 import 'package:lisku/services/ai_server_controller.dart';
+import 'package:lisku/services/ai_chat_repository.dart';
 
 // ============= IMPORT PAGES =============
 import 'package:lisku/pages/ai_assistant_page.dart';
@@ -858,6 +861,16 @@ void main() async {
   Hive.registerAdapter(FootballTrainingAdapter());
   Hive.registerAdapter(FootballDrillAdapter());
   Hive.registerAdapter(HealthMetricsAdapter());
+
+  // Asisten AI adapters
+  Hive.registerAdapter(AiChatMessageAdapter());
+  Hive.registerAdapter(KnowledgeChunkAdapter());
+  Hive.registerAdapter(KnowledgeSourceAdapter());
+  try {
+    await AiChatRepository.open();
+  } catch (e) {
+    debugPrint('⚠️ Gagal membuka riwayat chat AI: $e');
+  }
 
   // Inisialisasi timezone
   tz.initializeTimeZones();
