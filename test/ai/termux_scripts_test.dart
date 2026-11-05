@@ -17,20 +17,46 @@ void main() {
     });
   });
 
+  Map<String, String> homeScripts() => {
+        for (final e in TermuxScripts.homeScripts.entries) e.key: File(e.value).readAsStringSync(),
+      };
+
   test('setup script menulis semua skrip lalu menjalankan setup', () {
     final script = TermuxScripts.buildSetupScript(
       setup: File('termux/setup-lisku-ai.sh').readAsStringSync(),
-      start: File('termux/start-llm.sh').readAsStringSync(),
-      stop: File('termux/stop-llm.sh').readAsStringSync(),
-      status: File('termux/lisku-status.sh').readAsStringSync(),
-      modelChoice: 'uncensored',
+      scripts: homeScripts(),
+      modelChoice: 'default',
     );
-    expect(script, contains('cat > ~/start-llm.sh'));
-    expect(script, contains('cat > ~/stop-llm.sh'));
-    expect(script, contains('cat > ~/lisku-status.sh'));
-    expect(script, contains('echo uncensored > ~/.lisku-model'));
+    for (final name in TermuxScripts.homeScripts.keys) {
+      expect(script, contains('cat > ~/$name'));
+    }
+    expect(script, contains('echo default > ~/.lisku-model'));
     expect(script.indexOf('cat > ~/start-llm.sh'), lessThan(script.indexOf('Lisku AI - Setup Otomatis')));
     expect(script, contains('--reasoning-format deepseek'));
+  });
+
+  test('setup awal tidak mengunduh model uncensored', () {
+    final setup = File('termux/setup-lisku-ai.sh').readAsStringSync();
+    final downloads = setup.split('\n').where((l) => l.trimLeft().startsWith('download '));
+    expect(downloads, hasLength(2));
+    expect(downloads.join(), isNot(contains('uncensored')));
+    expect(File('termux/download-uncensored.sh').readAsStringSync(),
+        contains('download chat-uncensored "TrevorJS/gemma-4-E2B-it-uncensored-GGUF" "Q4_K_M"'));
+  });
+
+  test('unduh uncensored menulis ulang skrip lalu menjalankan download-uncensored.sh', () {
+    final script = TermuxScripts.buildDownloadUncensoredScript(homeScripts());
+    expect(script, contains('cat > ~/lisku-models-lib.sh'));
+    expect(script, contains('cat > ~/start-llm.sh'));
+    expect(script.trimRight(), endsWith('bash ~/download-uncensored.sh'));
+    // Pilihan model baru ditulis aplikasi setelah unduhan sukses.
+    expect(script, isNot(contains(TermuxScripts.setModelCommand('uncensored'))));
+  });
+
+  test('start-llm tidak memakai -hf untuk model uncensored', () {
+    final start = File('termux/start-llm.sh').readAsStringSync();
+    expect(start, isNot(contains('TrevorJS')));
+    expect(start, contains(TermuxScripts.uncensoredMissingMarker));
   });
 
   test('pilihan model selain uncensored jadi default', () {

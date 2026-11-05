@@ -165,7 +165,7 @@ class _AiAssistantPageState extends State<AiAssistantPage> {
             Text(
               ai.setupDone
                   ? 'Setup sudah pernah dijalankan. Jalankan lagi untuk memperbarui llama-cpp atau melanjutkan unduhan model yang terputus.'
-                  : 'Sekali saja: memasang llama-cpp di Termux dan mengunduh model (±4,5 GB). Progres terlihat di Termux.',
+                  : 'Sekali saja: memasang llama-cpp di Termux dan mengunduh model default + embedding (±1,5 GB). Progres terlihat di Termux. Model uncensored diunduh terpisah bila dipilih di Pengaturan AI.',
               style: TextStyle(color: Colors.grey[700], fontSize: 13),
             ),
             const SizedBox(height: 12),

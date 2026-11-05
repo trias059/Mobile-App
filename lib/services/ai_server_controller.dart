@@ -211,6 +211,12 @@ class AiServerController extends ChangeNotifier with WidgetsBindingObserver {
         _setError(AiErrorKind.notSetup);
         return false;
       }
+      if (result.stdout.contains(TermuxScripts.uncensoredMissingMarker)) {
+        // start-llm.sh sudah menyalakan model default sebagai gantinya.
+        _notice = 'Model uncensored belum terunduh lengkap, jadi Lisku memakai model default. '
+            'Pilih Uncensored di Pengaturan AI untuk mengunduhnya.';
+        await _saveModelChoice(AiModelChoice.defaultModel);
+      }
     } on TermuxException catch (e) {
       if (e.kind != TermuxErrorKind.timeout) {
         _handleTermuxException(e);
@@ -354,6 +360,53 @@ class AiServerController extends ChangeNotifier with WidgetsBindingObserver {
         _handleTermuxException(e);
       }
     }
+  }
+
+  /// true = file model uncensored sudah lengkap di ~/models,
+  /// false = belum/setengah, null = Termux tidak bisa ditanya.
+  Future<bool?> isUncensoredDownloaded() async {
+    if (!await _checkTermuxReady()) return null;
+    try {
+      final result = await termux.runScript(TermuxScripts.uncensoredCheckCommand,
+          label: 'Lisku AI: cek model', timeout: const Duration(seconds: 10));
+      if (result.stdout.contains('LISKU_UNCENSORED:READY')) return true;
+      if (result.stdout.contains('LISKU_UNCENSORED:MISSING')) return false;
+      return null;
+    } on TermuxException catch (e) {
+      _handleTermuxException(e);
+      return null;
+    }
+  }
+
+  /// Unduh model uncensored di sesi FOREGROUND Termux (progres terlihat).
+  /// Tidak mengubah pilihan model; return true bila unduhan selesai & lengkap.
+  Future<bool> downloadUncensored() async {
+    if (!await _checkTermuxReady()) return false;
+    final script = await TermuxScripts.loadDownloadUncensoredScript();
+    final previous = _state;
+    _setState(AiServerState.setupRunning, progress: 'Mengunduh model uncensored di Termux...');
+
+    final future = termux.runScript(
+      script,
+      background: false,
+      sessionAction: '0', // sesi baru + buka Termux
+      label: 'Lisku AI: unduh Uncensored',
+      description: 'Mengunduh Gemma 4 E2B uncensored (±3,4 GB)',
+      timeout: const Duration(hours: 3),
+    );
+    Future.delayed(const Duration(milliseconds: 600), termux.openTermux);
+
+    var ok = false;
+    try {
+      ok = (await future).ok;
+    } on TermuxException catch (e) {
+      if (e.kind != TermuxErrorKind.timeout) _handleTermuxException(e);
+    }
+    if (_state == AiServerState.setupRunning) {
+      _setState(previous == AiServerState.ready ? AiServerState.ready : AiServerState.idle);
+    }
+    // Pastikan file benar-benar lengkap, bukan sekadar sesi ditutup.
+    return ok && await isUncensoredDownloaded() == true;
   }
 
   /// Ganti model: simpan pilihan, tulis ~/.lisku-model, lalu restart server.

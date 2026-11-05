@@ -31,9 +31,25 @@ model_args() {
   fi
 }
 
+# Model uncensored hanya dipakai bila filenya sudah terunduh lengkap (lewat
+# Pengaturan AI). Tidak ada -hf untuknya: kalau belum lengkap, kembali ke
+# default dan beri tanda ke aplikasi.
+uncensored_file() {
+  local name
+  name="$(cat "$MODELS/chat-uncensored.path" 2>/dev/null)"
+  [ -n "$name" ] && [ -f "$MODELS/$name" ] && [ ! -f "$MODELS/$name.lisku-partial" ] \
+    && echo "$MODELS/$name"
+}
+
+if [ "$CHOICE" = uncensored ] && [ -z "$(uncensored_file)" ]; then
+  echo "LISKU_WARN:UNCENSORED_MISSING"
+  CHOICE=default
+  echo default > "$HOME/.lisku-model"
+fi
+
 case "$CHOICE" in
   uncensored)
-    CHAT=( $(model_args chat-uncensored "TrevorJS/gemma-4-E2B-it-uncensored-GGUF:Q4_K_M" "") )
+    CHAT=( -m "$(uncensored_file)" )
     ;;
   *)
     CHOICE=default

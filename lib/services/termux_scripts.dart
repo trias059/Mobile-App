@@ -9,6 +9,17 @@ class TermuxScripts {
   static const String startAsset = 'termux/start-llm.sh';
   static const String stopAsset = 'termux/stop-llm.sh';
   static const String statusAsset = 'termux/lisku-status.sh';
+  static const String modelsLibAsset = 'termux/lisku-models-lib.sh';
+  static const String downloadUncensoredAsset = 'termux/download-uncensored.sh';
+
+  /// Skrip yang ditulis aplikasi ke ~ (nama file di Termux -> asset).
+  static const Map<String, String> homeScripts = {
+    'start-llm.sh': startAsset,
+    'stop-llm.sh': stopAsset,
+    'lisku-status.sh': statusAsset,
+    'lisku-models-lib.sh': modelsLibAsset,
+    'download-uncensored.sh': downloadUncensoredAsset,
+  };
 
   static const String startCommand =
       'if [ -f ~/start-llm.sh ]; then bash ~/start-llm.sh; else echo LISKU_ERR:NOT_SETUP; exit 3; fi';
@@ -17,32 +28,62 @@ class TermuxScripts {
   static const String statusCommand =
       'if [ -f ~/lisku-status.sh ]; then bash ~/lisku-status.sh; else echo LISKU_ERR:NOT_SETUP; fi';
 
-  /// Skrip setup lengkap: tulis start/stop/status ke ~ lalu jalankan setup.
+  /// Penanda dari start-llm.sh: uncensored dipilih tapi file belum lengkap,
+  /// server dinyalakan dengan model default.
+  static const String uncensoredMissingMarker = 'LISKU_WARN:UNCENSORED_MISSING';
+
+  /// Cek apakah model uncensored sudah terunduh lengkap (tanpa penanda .lisku-partial).
+  static const String uncensoredCheckCommand =
+      'n=\$(cat ~/models/chat-uncensored.path 2>/dev/null); '
+      'if [ -n "\$n" ] && [ -f ~/models/"\$n" ] && [ ! -f ~/models/"\$n".lisku-partial ]; '
+      'then echo LISKU_UNCENSORED:READY; else echo LISKU_UNCENSORED:MISSING; fi';
+
+  static Future<Map<String, String>> _loadHomeScripts() async {
+    return {
+      for (final entry in homeScripts.entries) entry.key: await rootBundle.loadString(entry.value),
+    };
+  }
+
+  /// Skrip setup lengkap: tulis skrip ke ~ lalu jalankan setup.
   static Future<String> loadSetupScript({required String modelChoice}) async {
     return buildSetupScript(
       setup: await rootBundle.loadString(setupAsset),
-      start: await rootBundle.loadString(startAsset),
-      stop: await rootBundle.loadString(stopAsset),
-      status: await rootBundle.loadString(statusAsset),
+      scripts: await _loadHomeScripts(),
       modelChoice: modelChoice,
     );
   }
 
+  /// Unduh model uncensored: tulis ulang skrip ke ~ (agar start-llm.sh ikut
+  /// versi terbaru) lalu jalankan ~/download-uncensored.sh.
+  static Future<String> loadDownloadUncensoredScript() async {
+    return buildDownloadUncensoredScript(await _loadHomeScripts());
+  }
+
   static String buildSetupScript({
     required String setup,
-    required String start,
-    required String stop,
-    required String status,
+    required Map<String, String> scripts,
     required String modelChoice,
   }) {
     final buffer = StringBuffer()
-      ..writeln('mkdir -p ~/models ~/llm-logs')
-      ..write(writeFile('~/start-llm.sh', start))
-      ..write(writeFile('~/stop-llm.sh', stop))
-      ..write(writeFile('~/lisku-status.sh', status))
-      ..writeln('chmod +x ~/start-llm.sh ~/stop-llm.sh ~/lisku-status.sh')
+      ..write(writeHomeScripts(scripts))
       ..writeln(setModelCommand(modelChoice))
       ..writeln(setup);
+    return buffer.toString();
+  }
+
+  static String buildDownloadUncensoredScript(Map<String, String> scripts) {
+    final buffer = StringBuffer()
+      ..write(writeHomeScripts(scripts))
+      ..writeln('bash ~/download-uncensored.sh');
+    return buffer.toString();
+  }
+
+  static String writeHomeScripts(Map<String, String> scripts) {
+    final buffer = StringBuffer()..writeln('mkdir -p ~/models ~/llm-logs');
+    for (final entry in scripts.entries) {
+      buffer.write(writeFile('~/${entry.key}', entry.value));
+    }
+    buffer.writeln('chmod +x ${scripts.keys.map((name) => '~/$name').join(' ')}');
     return buffer.toString();
   }
 
