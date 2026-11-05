@@ -60,6 +60,16 @@ dependencies:
   # Icon set standar iOS
   cupertino_icons: ^1.0.8
 
+  # ============================================
+  # ASISTEN AI (LLM lokal via Termux)
+  # ============================================
+
+  # HTTP client untuk streaming SSE ke llama-server lokal
+  http: ^1.6.0
+
+  # Ekstrak teks PDF per halaman (pure Dart) untuk RAG e-book
+  syncfusion_flutter_pdf: ^31.1.19
+
 # ============================================
 # DEVELOPMENT DEPENDENCIES
 # ============================================
@@ -81,6 +91,10 @@ dev_dependencies:
 # ============================================
 flutter:
   uses-material-design: true
+
+  # Skrip Termux untuk asisten AI (dikirim inline lewat RUN_COMMAND)
+  assets:
+    - termux/
 
   # Assets (uncomment jika perlu)
   # assets:

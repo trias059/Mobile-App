@@ -21,6 +21,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lisku/pages/fitness_dashboard_page.dart';
 import 'package:lisku/pages/water_tracking_page.dart';
+import 'package:lisku/pages/ai_assistant_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -753,6 +754,15 @@ class _HomeContentState extends State<HomeContent> {
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const FitnessDashboardPage()),
+              ),
+            ),
+            _buildMenuItem(
+              icon: Icons.smart_toy,
+              label: 'Asisten AI',
+              color: Colors.indigo,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AiAssistantPage()),
               ),
             ),
           ],

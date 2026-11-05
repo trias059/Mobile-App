@@ -13,9 +13,17 @@ import 'package:lisku/model/goal_task.dart';
 import 'package:lisku/model/note_model.dart';
 import 'package:lisku/model/transaction_model.dart';
 import 'package:lisku/model/fitness_models.dart';
+import 'package:lisku/model/ai_chat_message.dart';
+import 'package:lisku/model/knowledge_models.dart';
 
 // ============= IMPORT SERVICES =============
 import 'package:lisku/services/notification_service.dart';
+import 'package:lisku/services/ai_server_controller.dart';
+import 'package:lisku/services/ai_chat_repository.dart';
+import 'package:lisku/services/knowledge_service.dart';
+
+// ============= IMPORT PAGES =============
+import 'package:lisku/pages/ai_assistant_page.dart';
 
 // ============= TASK PROVIDER (DENGAN ANTI-DUPLIKASI) =============
 class TaskProvider extends ChangeNotifier {
@@ -275,6 +283,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Center(child: Text('Fitness (Coming Soon)', style: TextStyle(fontSize: 20))),
     Center(child: Text('Finance (Coming Soon)', style: TextStyle(fontSize: 20))),
     Center(child: Text('Notes (Coming Soon)', style: TextStyle(fontSize: 20))),
+    const AiAssistantPage(),
   ];
 
   @override
@@ -303,6 +312,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.note),
             label: 'Catatan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.smart_toy),
+            label: 'AI',
           ),
         ],
       ),
@@ -850,6 +863,17 @@ void main() async {
   Hive.registerAdapter(FootballDrillAdapter());
   Hive.registerAdapter(HealthMetricsAdapter());
 
+  // Asisten AI adapters
+  Hive.registerAdapter(AiChatMessageAdapter());
+  Hive.registerAdapter(KnowledgeChunkAdapter());
+  Hive.registerAdapter(KnowledgeSourceAdapter());
+  try {
+    await AiChatRepository.open();
+    await KnowledgeService.open();
+  } catch (e) {
+    debugPrint('⚠️ Gagal membuka riwayat chat AI: $e');
+  }
+
   // Inisialisasi timezone
   tz.initializeTimeZones();
 
@@ -870,6 +894,9 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(
           create: (_) => TaskProvider()..init(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => AiServerController()..init(),
         ),
       ],
       child: MaterialApp(
