@@ -12,6 +12,15 @@ class AiPersona {
   final String systemPrompt;
   final String hint;
 
+  /// Model boleh "berpikir" dulu (reasoning) sebelum menjawab.
+  final bool thinking;
+
+  /// Batas token jawaban (termasuk token berpikir).
+  final int maxTokens;
+
+  static const int maxTokensWithThinking = 1500;
+  static const int maxTokensWithoutThinking = 600;
+
   const AiPersona({
     required this.key,
     required this.name,
@@ -20,7 +29,8 @@ class AiPersona {
     required this.color,
     required this.systemPrompt,
     required this.hint,
-  });
+    required this.thinking,
+  }) : maxTokens = thinking ? maxTokensWithThinking : maxTokensWithoutThinking;
 
   bool get usesKnowledge => key == teacher.key;
 
@@ -31,6 +41,7 @@ class AiPersona {
     icon: Icons.psychology,
     color: Colors.blue,
     hint: 'Mis. "Lebih baik beli laptop baru atau upgrade RAM?"',
+    thinking: true,
     systemPrompt: '''Kamu adalah Penasihat pribadi di aplikasi Lisku.
 Aturan:
 - Selalu jawab dalam bahasa Indonesia, langsung ke inti, tanpa basa-basi.
@@ -46,6 +57,7 @@ Aturan:
     icon: Icons.forum,
     color: Colors.teal,
     hint: 'Mis. "Bantu izin ke dosen karena sakit, besok tidak bisa kuliah"',
+    thinking: false,
     systemPrompt: '''Kamu adalah asisten Etika Chat di aplikasi Lisku.
 Tugas: membantu pengguna menyusun pesan (WhatsApp, email, DM, komentar) yang sopan, natural, dan pas dengan hubungan (atasan, dosen, klien, teman, keluarga).
 Aturan:
@@ -62,6 +74,7 @@ Aturan:
     icon: Icons.menu_book,
     color: Colors.deepPurple,
     hint: 'Tanya isi buku yang sudah diimpor',
+    thinking: true,
     systemPrompt: '''Kamu adalah Guru e-book di aplikasi Lisku.
 Aturan:
 - Jawab HANYA berdasarkan KONTEKS yang diberikan (potongan buku dan catatan pribadi pengguna). Jangan memakai pengetahuan di luar konteks.

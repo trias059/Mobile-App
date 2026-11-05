@@ -35,6 +35,9 @@ class AiChatMessage extends HiveObject {
   @HiveField(9)
   String? model; // 'default' | 'uncensored'
 
+  @HiveField(10, defaultValue: '')
+  String stopReason; // '' | 'length' (batas max_tokens tercapai)
+
   AiChatMessage({
     required this.id,
     required this.role,
@@ -46,7 +49,20 @@ class AiChatMessage extends HiveObject {
     this.isError = false,
     this.question,
     this.model,
+    this.stopReason = '',
   });
 
+  static const String truncatedNote = 'Jawaban terpotong. Coba tanya lebih spesifik.';
+  static const String thinkingTooLongNote =
+      'Model berpikir terlalu lama. Coba ulangi atau sederhanakan pertanyaan.';
+
   bool get isUser => role == 'user';
+
+  bool get hitTokenLimit => stopReason == 'length';
+
+  /// Batas habis setelah jawaban mulai ditulis.
+  bool get isTruncated => hitTokenLimit && content.trim().isNotEmpty;
+
+  /// Batas habis saat model masih berpikir (belum ada jawaban sama sekali).
+  bool get isThinkingOverflow => hitTokenLimit && content.trim().isEmpty;
 }

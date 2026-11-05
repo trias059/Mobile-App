@@ -40,6 +40,28 @@ void main() {
       sources: ['[1] Atomic Habits, hal. 3–4'],
       question: 'Apa itu habit?',
     ));
+    await AiChatRepository.add(AiChatMessage(
+        id: '3', role: 'user', content: 'Jelaskan panjang', persona: 'advisor', createdAt: DateTime(2026, 1, 3)));
+    await AiChatRepository.add(AiChatMessage(
+      id: '4',
+      role: 'assistant',
+      content: 'Bagian awal jawaban',
+      reasoning: 'mikir',
+      persona: 'advisor',
+      createdAt: DateTime(2026, 1, 4),
+      stopReason: 'length',
+    ));
+    await AiChatRepository.add(AiChatMessage(
+        id: '5', role: 'user', content: 'Soal sulit', persona: 'advisor', createdAt: DateTime(2026, 1, 5)));
+    await AiChatRepository.add(AiChatMessage(
+      id: '6',
+      role: 'assistant',
+      content: '',
+      reasoning: 'mikir panjang sekali',
+      persona: 'advisor',
+      createdAt: DateTime(2026, 1, 6),
+      stopReason: 'length',
+    ));
     await KnowledgeService.sources.put('n1', KnowledgeSource(
         id: 'n1', type: 'note', title: 'Tidur', createdAt: DateTime(2026), text: 'Tidur 8 jam'));
     await KnowledgeService.sources.put('b1', KnowledgeSource(
@@ -101,6 +123,22 @@ void main() {
     await tester.tap(find.byIcon(Icons.send));
     await settle(tester);
     expect(find.textContaining('AI belum siap'), findsOneWidget);
+    await done(tester);
+  });
+
+  testWidgets('chat: batas token -> catatan terpotong / berpikir terlalu lama', (tester) async {
+    await pump(tester, const AiChatPage(initialPersona: 'advisor'));
+    expect(find.text('Bagian awal jawaban'), findsOneWidget);
+    expect(find.text(AiChatMessage.truncatedNote), findsOneWidget);
+    expect(find.text(AiChatMessage.thinkingTooLongNote), findsOneWidget);
+    expect(find.text('Thinking...'), findsNothing);
+    // Proses berpikir tetap bisa dibuka untuk keduanya.
+    expect(find.text('Lihat proses berpikir'), findsNWidgets(2));
+    await tester.tap(find.text('Lihat proses berpikir').last);
+    await tester.pump();
+    expect(find.text('mikir panjang sekali'), findsOneWidget);
+    // Tanpa jawaban: tidak ada tombol simpan insight/koreksi/salin untuknya.
+    expect(find.text('Simpan sebagai insight'), findsOneWidget);
     await done(tester);
   });
 

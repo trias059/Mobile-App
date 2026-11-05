@@ -47,6 +47,7 @@ class _AiChatPageState extends State<AiChatPage> {
   final StringBuffer _content = StringBuffer();
   ChatStream? _chatStream;
   List<String> _pendingSources = const [];
+  String? _finishReason;
   StreamSubscription? _subscription;
 
   // Tampilan jawaban per kata
@@ -106,6 +107,7 @@ class _AiChatPageState extends State<AiChatPage> {
       _waitingServer = !_ai.isReady;
       _reasoning.clear();
       _content.clear();
+      _finishReason = null;
       _shownWords = 0;
     });
     _scrollToBottom();
@@ -123,10 +125,15 @@ class _AiChatPageState extends State<AiChatPage> {
       if (!mounted || prompt == null) return;
       _pendingSources = prompt.sources;
 
-      _chatStream = _ai.llm.streamChat(prompt.messages);
+      _chatStream = _ai.llm.streamChat(
+        prompt.messages,
+        maxTokens: _persona.maxTokens,
+        enableThinking: _persona.thinking,
+      );
       _subscription = _chatStream!.stream.listen(
         (delta) {
           _ai.touch();
+          if (delta.finishReason != null) _finishReason = delta.finishReason;
           if (delta.reasoning.isNotEmpty) _reasoning.write(delta.reasoning);
           if (delta.content.isNotEmpty) {
             _content.write(delta.content);
@@ -179,7 +186,9 @@ class _AiChatPageState extends State<AiChatPage> {
     if (!_streaming || _finalizing) return;
     _finalizing = true;
     var content = _content.toString().trim();
-    if (content.isEmpty && !stopped) {
+    // finish_reason "length" = batas max_tokens persona habis.
+    final stopReason = !stopped && _finishReason == 'length' ? 'length' : '';
+    if (content.isEmpty && !stopped && stopReason.isEmpty) {
       content = 'Model tidak memberi jawaban. Coba ulangi pertanyaannya.';
     }
     if (stopped) content = content.isEmpty ? '(dihentikan)' : '$content …';
@@ -194,6 +203,7 @@ class _AiChatPageState extends State<AiChatPage> {
       sources: sources,
       question: question,
       model: _ai.modelChoice,
+      stopReason: stopReason,
     ));
     _endBusy();
     if (!mounted) return;
@@ -557,16 +567,34 @@ class _AiChatPageState extends State<AiChatPage> {
               const SizedBox(width: 6),
               Expanded(child: Text(text, style: TextStyle(color: Colors.red[900]))),
             ])
+          else if (msg.isThinkingOverflow)
+            _limitNote(AiChatMessage.thinkingTooLongNote, Icons.hourglass_bottom)
           else
             FormattedText(text),
+          if (msg.isTruncated && !revealing)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: _limitNote(AiChatMessage.truncatedNote, Icons.content_cut),
+            ),
           if (!revealing) ..._buildAssistantFooter(msg, showReasoning),
         ],
       ),
     );
   }
 
+  Widget _limitNote(String text, IconData icon) {
+    return Row(children: [
+      Icon(icon, size: 16, color: Colors.orange[800]),
+      const SizedBox(width: 6),
+      Expanded(
+        child: Text(text, style: TextStyle(color: Colors.orange[900], fontSize: 13, fontStyle: FontStyle.italic)),
+      ),
+    ]);
+  }
+
   List<Widget> _buildAssistantFooter(AiChatMessage msg, bool showReasoning) {
     final showCorrection = _openCorrection.contains(msg.id);
+    final hasAnswer = !msg.isError && msg.content.trim().isNotEmpty;
     return [
       if (msg.sources.isNotEmpty)
         Container(
@@ -616,13 +644,13 @@ class _AiChatPageState extends State<AiChatPage> {
                 showReasoning ? _openReasoning.remove(msg.id) : _openReasoning.add(msg.id);
               }),
             ),
-          if (!msg.isError)
+          if (hasAnswer)
             _SmallButton(
               icon: _savedInsight.contains(msg.id) ? Icons.check : Icons.bookmark_add_outlined,
               label: _savedInsight.contains(msg.id) ? 'Tersimpan' : 'Simpan sebagai insight',
               onTap: () => _saveAsInsight(msg),
             ),
-          if (!msg.isError)
+          if (hasAnswer)
             _SmallButton(
               icon: Icons.edit_note,
               label: 'Koreksi',
@@ -630,7 +658,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 showCorrection ? _openCorrection.remove(msg.id) : _openCorrection.add(msg.id);
               }),
             ),
-          if (!msg.isError)
+          if (hasAnswer)
             _SmallButton(
               icon: Icons.copy,
               label: 'Salin',

@@ -39,15 +39,24 @@ Kedua server dijalankan di background dengan `nohup` oleh `~/start-llm.sh`, log 
 
 ## Model
 
-| Kunci              | Repo Hugging Face (`-hf`)                          | File lokal                         |
-|--------------------|----------------------------------------------------|------------------------------------|
-| Chat default       | `ggml-org/Qwen3-1.7B-GGUF:Q4_K_M`                  | `~/models/Qwen3-1.7B-Q4_K_M.gguf`  |
-| Chat uncensored    | `TrevorJS/gemma-4-E2B-it-uncensored-GGUF:Q4_K_M`   | nama dari API HF, dicatat di `~/models/chat-uncensored.path` |
-| Embedding          | `ggml-org/embeddinggemma-300M-GGUF:Q8_0`           | nama dari API HF, dicatat di `~/models/embed.path` |
+| Kunci              | Repo Hugging Face                                  | File lokal                         | Kapan diunduh |
+|--------------------|----------------------------------------------------|------------------------------------|---------------|
+| Chat default       | `ggml-org/Qwen3-1.7B-GGUF:Q4_K_M`                  | `~/models/Qwen3-1.7B-Q4_K_M.gguf`  | Setup AI |
+| Embedding          | `ggml-org/embeddinggemma-300M-GGUF:Q8_0`           | nama dari API HF, dicatat di `~/models/embed.path` | Setup AI |
+| Chat uncensored    | `TrevorJS/gemma-4-E2B-it-uncensored-GGUF:Q4_K_M` (±3,4 GB) | nama dari API HF, dicatat di `~/models/chat-uncensored.path` | saat pertama kali dipilih di Pengaturan |
 
-- Setup mengunduh ketiganya dengan `wget -c` (bisa dilanjutkan bila terputus) ke `~/models`.
-- `start-llm.sh` memakai `-m <file lokal>` jika file ada (dan tidak sedang setengah unduh);
-  jika tidak, jatuh ke `-hf <repo:quant>` sehingga llama-server mengunduh sendiri ke cache.
+- Semua unduhan memakai `wget -c` (resume) ke `~/models` lewat fungsi bersama di
+  `lisku-models-lib.sh`. Selama mengunduh ada penanda `<file>.lisku-partial`; file
+  dianggap lengkap hanya bila penanda itu sudah hilang.
+- **Setup AI hanya mengunduh model default + embedding (±1,5 GB).**
+- **Model uncensored** diunduh oleh `download-uncensored.sh` di sesi foreground Termux,
+  setelah user memilih "Uncensored" di Pengaturan dan menyetujui dialog (±3,4 GB).
+  Baru setelah unduhan lengkap Lisku menulis `~/.lisku-model` dan me-restart server.
+  Dibatalkan/gagal → tetap model default.
+- `start-llm.sh` memakai `-m <file lokal>`. Untuk default & embedding, bila file lokal
+  tidak ada, jatuh ke `-hf <repo:quant>`. Untuk **uncensored tidak ada `-hf`**: bila
+  filenya belum lengkap, skrip menulis `default` ke `~/.lisku-model`, menyalakan model
+  default, dan mencetak `LISKU_WARN:UNCENSORED_MISSING` sehingga Lisku memberi tahu user.
 - Jika `~/models/Qwen3-1.7B-Q4_K_M.gguf` sudah ada, file itu langsung dipakai untuk model default.
 - Pilihan model aktif ada di `~/.lisku-model` (`default` | `uncensored`), ditulis Lisku via RUN_COMMAND.
 
@@ -58,6 +67,8 @@ Kedua server dijalankan di background dengan `nohup` oleh `~/start-llm.sh`, log 
 | `~/start-llm.sh`       | baca `~/.lisku-model`, pkill instance lama, nyalakan 2 server   |
 | `~/stop-llm.sh`        | `pkill llama-server`, lepas wake-lock                           |
 | `~/lisku-status.sh`    | laporan `CHAT_ALIVE`, `EMBED_ALIVE`, model, tail log (dibaca app) |
+| `~/lisku-models-lib.sh`| fungsi unduh bersama (`download`, `hf_file`, `model_complete`)  |
+| `~/download-uncensored.sh` | unduh model uncensored (dijalankan dari Pengaturan AI)      |
 | `~/.lisku-model`       | pilihan model aktif                                             |
 | `~/models/`            | file `.gguf`                                                    |
 | `~/llm-logs/`          | log & PID                                                       |
@@ -109,6 +120,13 @@ jadi skrip di repo **sama persis** dengan yang dikirim aplikasi.
   Saat `content` datang → jawaban muncul per kata. Reasoning disimpan per pesan dan bisa
   dibuka lewat tombol "Lihat proses berpikir".
 - Tiga peran (system prompt bahasa Indonesia): Penasihat, Etika chat, Guru e-book.
+- **Batas `max_tokens` per peran** (`AiPersona.maxTokens`): peran dengan thinking
+  (Penasihat, Guru e-book) 1500 token; tanpa thinking (Etika chat) 600 token. Etika chat
+  mengirim `chat_template_kwargs: {"enable_thinking": false}` agar Qwen3 langsung menjawab.
+- `finish_reason: "length"` disimpan di pesan (`stopReason`). Jika sudah ada jawaban →
+  catatan "Jawaban terpotong. Coba tanya lebih spesifik." Jika batas habis saat masih
+  berpikir (belum ada `content`) → loading "Thinking..." berhenti dan tampil "Model berpikir
+  terlalu lama. Coba ulangi atau sederhanakan pertanyaan."; "Lihat proses berpikir" tetap ada.
 - Riwayat disimpan di Hive box `ai_chat_messages` (`AiChatMessage`, typeId 50).
 
 ## RAG e-book & insight (Fase 3)

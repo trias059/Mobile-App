@@ -76,3 +76,33 @@ Keputusan yang diambil saat implementasi tanpa konfirmasi, beserta alasannya.
     unduhan Android SDK dari `dl.google.com` diblokir kebijakan jaringan lingkungan ini.
     `flutter analyze` (0 error) dan `flutter test` sudah dijalankan. Build APK perlu
     dijalankan di mesin dengan Android SDK (lihat docs/CARA-PAKAI.md).
+
+## Perbaikan setelah review
+
+31. **Model uncensored tidak diunduh saat Setup AI.** Setup hanya mengunduh Qwen3 1.7B dan
+    EmbeddingGemma (±1,5 GB). Model uncensored (±3,4 GB) diunduh oleh
+    `termux/download-uncensored.sh` di sesi foreground Termux setelah user memilihnya di
+    Pengaturan dan menyetujui dialog. Pilihan baru ditulis ke `~/.lisku-model` setelah
+    unduhan lengkap; dibatalkan/gagal → tetap default.
+32. **Fungsi unduh bersama `termux/lisku-models-lib.sh`** (resume `wget -c` + penanda
+    `.lisku-partial`) di-source oleh setup dan unduhan uncensored agar logikanya sama persis.
+    Nama file kini dicatat ke `<kunci>.path` *sebelum* unduhan dimulai sehingga unduhan yang
+    terputus bisa dikenali dan dilanjutkan.
+33. **Unduhan uncensored menulis ulang semua skrip di `~`** (start/stop/status/lib/download)
+    sebelum mengunduh. Dengan begitu `start-llm.sh` versi baru ikut terpasang walau user
+    tidak menjalankan Setup AI ulang.
+34. **`start-llm.sh` tanpa `-hf` untuk uncensored.** Bila uncensored dipilih tapi filenya
+    belum lengkap: tulis `default` ke `~/.lisku-model`, nyalakan model default, cetak
+    `LISKU_WARN:UNCENSORED_MISSING`. Lisku membaca penanda ini, menyimpan pilihan default,
+    dan menampilkan pemberitahuan. Default & embedding tetap boleh jatuh ke `-hf`.
+35. **Peran "tanpa thinking" = Etika chat.** Penasihat dan Guru e-book butuh penalaran
+    (thinking, `max_tokens` 1500). Etika chat hanya menyusun draf pesan, jadi dibuat tanpa
+    thinking (`max_tokens` 600) dengan `chat_template_kwargs.enable_thinking=false`
+    (didukung template Qwen3 di llama-server `--jinja`; diabaikan oleh Gemma/server lama).
+    Ini satu-satunya perubahan perilaku chat di luar batas token, karena batas 600 token
+    tidak masuk akal bila model masih berpikir panjang.
+36. **`finish_reason` disimpan di pesan** (`AiChatMessage.stopReason`, HiveField 10 dengan
+    default `''`, jadi riwayat lama tetap terbaca). Catatan "terpotong"/"berpikir terlalu
+    lama" tetap tampil setelah aplikasi dibuka ulang. Pesan yang habis saat berpikir
+    disimpan dengan `content` kosong sehingga tidak ikut dikirim sebagai riwayat dan tidak
+    punya tombol insight/koreksi/salin; tombol "Lihat proses berpikir" tetap ada.

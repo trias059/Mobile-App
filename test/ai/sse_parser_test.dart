@@ -88,6 +88,30 @@ void main() {
       expect(deltas.map((d) => d.content).join(), 'a < b dan <');
     });
 
+    test('finish_reason "length" setelah jawaban mulai (jawaban terpotong)', () {
+      final p = ChatStreamParser();
+      final deltas = p.feed(chunk(reasoning: 'mikir') +
+          chunk(content: 'Jawaban yang panjang') +
+          chunk(finish: 'length') +
+          done);
+      expect(deltas.last.finishReason, 'length');
+      expect(deltas.last.content, isEmpty);
+      expect(deltas.map((d) => d.content).join(), 'Jawaban yang panjang');
+    });
+
+    test('finish_reason "length" saat masih berpikir: tanpa content sama sekali', () {
+      final p = ChatStreamParser();
+      final deltas = p.feed(chunk(reasoning: 'Hmm, ') + chunk(reasoning: 'masih mikir', finish: 'length') + done);
+      expect(deltas.map((d) => d.content).join(), isEmpty);
+      expect(deltas.map((d) => d.reasoning).join(), 'Hmm, masih mikir');
+      expect(deltas.map((d) => d.finishReason).whereType<String>(), ['length']);
+    });
+
+    test('finish_reason "stop" tetap dibedakan dari "length"', () {
+      final deltas = ChatStreamParser().feed(chunk(content: 'ok', finish: 'stop'));
+      expect(deltas.single.finishReason, 'stop');
+    });
+
     test('error dari server dilempar', () {
       expect(() => ChatStreamParser().feed('data: {"error":{"message":"context penuh"}}\n\n'),
           throwsA(isA<LlmStreamException>()));

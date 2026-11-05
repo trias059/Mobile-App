@@ -64,6 +64,7 @@ class LlmService {
     double topP = 0.95,
     int topK = 20,
     int? maxTokens,
+    bool enableThinking = true,
   }) {
     // Client sendiri per request agar bisa ditutup saat dibatalkan.
     final client = _clientFactory();
@@ -74,14 +75,14 @@ class LlmService {
       final request = http.Request('POST', Uri.parse('$chatBaseUrl/v1/chat/completions'))
         ..headers['Content-Type'] = 'application/json'
         ..headers['Accept'] = 'text/event-stream'
-        ..body = jsonEncode({
-          'messages': messages,
-          'stream': true,
-          'temperature': temperature,
-          'top_p': topP,
-          'top_k': topK,
-          if (maxTokens != null) 'max_tokens': maxTokens,
-        });
+        ..body = jsonEncode(chatRequestBody(
+          messages,
+          temperature: temperature,
+          topP: topP,
+          topK: topK,
+          maxTokens: maxTokens,
+          enableThinking: enableThinking,
+        ));
 
       try {
         final response = await client.send(request);
@@ -123,6 +124,27 @@ class LlmService {
 
     controller = StreamController<ChatDelta>(onListen: run, onCancel: cancel);
     return ChatStream(controller.stream, cancel);
+  }
+
+  /// Body JSON untuk /v1/chat/completions (streaming).
+  static Map<String, dynamic> chatRequestBody(
+    List<Map<String, String>> messages, {
+    double temperature = 0.6,
+    double topP = 0.95,
+    int topK = 20,
+    int? maxTokens,
+    bool enableThinking = true,
+  }) {
+    return {
+      'messages': messages,
+      'stream': true,
+      'temperature': temperature,
+      'top_p': topP,
+      'top_k': topK,
+      if (maxTokens != null) 'max_tokens': maxTokens,
+      // Template Qwen3 (--jinja): matikan fase berpikir. Diabaikan model lain.
+      if (!enableThinking) 'chat_template_kwargs': {'enable_thinking': false},
+    };
   }
 
   /// Embedding satu teks. Return vektor.

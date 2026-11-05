@@ -27,13 +27,14 @@ class AiChatMessageAdapter extends TypeAdapter<AiChatMessage> {
       isError: fields[7] as bool,
       question: fields[8] as String?,
       model: fields[9] as String?,
+      stopReason: fields[10] == null ? '' : fields[10] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, AiChatMessage obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class AiChatMessageAdapter extends TypeAdapter<AiChatMessage> {
       ..writeByte(8)
       ..write(obj.question)
       ..writeByte(9)
-      ..write(obj.model);
+      ..write(obj.model)
+      ..writeByte(10)
+      ..write(obj.stopReason);
   }
 
   @override

@@ -4,7 +4,9 @@ Panduan dari memasang APK sampai chat pertama. AI berjalan **offline di HP** lew
 (llama.cpp). Diuji untuk Asus Zenfone 11 Ultra (RAM 12 GB); HP lain dengan RAM ≥ 8 GB
 seharusnya bisa memakai model default.
 
-Butuh: ruang kosong **±5 GB** (model ±4,5 GB) dan internet (Wi-Fi) **hanya saat Setup AI**.
+Butuh: ruang kosong **±2 GB** (model default + embedding ±1,5 GB) dan internet (Wi-Fi)
+**hanya saat Setup AI**. Model uncensored (opsional) butuh tambahan **±3,4 GB** dan baru
+diunduh saat dipilih di Pengaturan AI.
 
 ---
 
@@ -54,8 +56,9 @@ Jika terlanjur menolak: Pengaturan > Aplikasi > Lisku > Izin > Izin tambahan >
 1. Di halaman AI tekan **Setup AI**. Termux terbuka dan menampilkan progres:
    1. `pkg install -y llama-cpp wget curl`
    2. membuat `~/models` dan `~/llm-logs`
-   3. menulis `~/start-llm.sh`, `~/stop-llm.sh`, `~/lisku-status.sh`, `~/.lisku-model`
-   4. mengunduh 3 model (Qwen3 1.7B, EmbeddingGemma 300M, Gemma 4 E2B uncensored)
+   3. menulis `~/start-llm.sh`, `~/stop-llm.sh`, `~/lisku-status.sh`,
+      `~/lisku-models-lib.sh`, `~/download-uncensored.sh`, `~/.lisku-model`
+   4. mengunduh 2 model (Qwen3 1.7B dan EmbeddingGemma 300M, ±1,5 GB)
    5. pemeriksaan
 2. Tunggu sampai tertulis **SELESAI!**. Jika unduhan terputus, tekan **Setup AI** lagi —
    unduhan dilanjutkan (resume), bukan dari nol.
@@ -72,6 +75,11 @@ Jika terlanjur menolak: Pengaturan > Aplikasi > Lisku > Izin > Izin tambahan >
 4. Tekan **Lihat proses berpikir** di bawah jawaban untuk membuka isi pikirannya
    (tersembunyi secara default).
 5. Ganti peran lewat chip di atas chat: **Penasihat**, **Etika chat**, **Guru e-book**.
+   Etika chat langsung menjawab tanpa berpikir agar draf pesan cepat jadi.
+6. Panjang jawaban dibatasi (Penasihat & Guru e-book 1500 token termasuk berpikir, Etika
+   chat 600 token). Jika batas tercapai muncul *"Jawaban terpotong. Coba tanya lebih
+   spesifik."*, atau — bila habis saat masih berpikir — *"Model berpikir terlalu lama. Coba
+   ulangi atau sederhanakan pertanyaan."* (proses berpikirnya tetap bisa dilihat).
 
 ## 6. Guru e-book & Insight
 
@@ -88,8 +96,16 @@ Jika terlanjur menolak: Pengaturan > Aplikasi > Lisku > Izin > Izin tambahan >
 ## 7. Ganti model
 
 **Pengaturan AI** > pilih **Default (Qwen3 1.7B)** atau **Uncensored (Gemma 4 E2B)**.
-Lisku menyimpan pilihan, menulis `~/.lisku-model`, lalu menyalakan ulang server. Jika model
-uncensored gagal dimuat, Lisku memberi tahu dan otomatis kembali ke model default.
+
+- **Pertama kali memilih Uncensored:** muncul dialog *"Unduh model Uncensored?"* (±3,4 GB).
+  Tekan **Unduh** → Termux terbuka dan menampilkan progres unduhan. Setelah *SELESAI*,
+  kembali ke Lisku; Lisku menulis `~/.lisku-model` lalu menyalakan ulang server dengan
+  model uncensored. Jika dibatalkan atau gagal, Lisku tetap memakai model default — pilih
+  Uncensored lagi untuk melanjutkan unduhan (resume).
+- Berikutnya (file sudah ada): Lisku langsung menyimpan pilihan, menulis `~/.lisku-model`,
+  dan menyalakan ulang server.
+- Jika model uncensored gagal dimuat atau filenya belum lengkap, Lisku memberi tahu dan
+  otomatis kembali ke model default.
 
 ## 8. Hemat RAM
 
@@ -111,6 +127,9 @@ saat itu juga.
 | **Model gagal dimuat** | File model rusak/terpotong atau RAM kurang. Tutup aplikasi berat, jalankan **Setup AI** lagi. Untuk mengunduh ulang: `rm ~/models/<file>.gguf` lalu Setup AI. |
 | `unknown argument: --reasoning-format` di log | llama-cpp terlalu lama: `pkg upgrade llama-cpp`. |
 | Setup berhenti di unduhan | Koneksi terputus. Tekan **Setup AI** lagi (resume). |
+| Unduhan Uncensored terputus | Lisku tetap di model default. Pilih **Uncensored** lagi di Pengaturan AI (resume). |
+| "Model uncensored belum terunduh lengkap..." | File uncensored belum lengkap; Lisku memakai default. Pilih Uncensored di Pengaturan AI untuk melanjutkan unduhan. |
+| "Jawaban terpotong" / "Model berpikir terlalu lama" | Batas token peran tercapai. Tanyakan hal yang lebih spesifik atau pecah jadi beberapa pertanyaan. |
 | Termux tidak terbuka saat Setup | Buka Termux manual; sesi "Lisku AI Setup" sudah berjalan. Beri izin *Tampilkan di atas aplikasi lain* ke Termux. |
 | AI mati sendiri saat layar mati | Set baterai Termux ke *Tidak dibatasi*, nonaktifkan batasan proses turunan (langkah 2.4). |
 | Jawaban sangat lambat | Pakai model Default; tutup aplikasi lain. Thinking Qwen3 memang butuh beberapa detik. |
@@ -123,6 +142,7 @@ bash ~/start-llm.sh                      # nyalakan server chat (8080) + embeddi
 bash ~/stop-llm.sh                       # matikan
 bash ~/lisku-status.sh                   # status proses + potongan log
 curl http://127.0.0.1:8080/health        # {"status":"ok"} jika siap
+bash ~/download-uncensored.sh            # unduh model uncensored (manual, resume)
 echo uncensored > ~/.lisku-model         # atau: echo default > ~/.lisku-model
 tail -f ~/llm-logs/chat.log              # pantau log chat
 ls -lh ~/models                          # file model

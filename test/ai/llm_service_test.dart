@@ -40,6 +40,47 @@ void main() {
     await server.close(force: true);
   });
 
+  test('body request membawa max_tokens & mematikan thinking bila diminta', () {
+    final msgs = [
+      {'role': 'user', 'content': 'hai'}
+    ];
+    final withThinking = LlmService.chatRequestBody(msgs, maxTokens: 1500);
+    expect(withThinking['max_tokens'], 1500);
+    expect(withThinking['stream'], isTrue);
+    expect(withThinking.containsKey('chat_template_kwargs'), isFalse);
+
+    final noThinking = LlmService.chatRequestBody(msgs, maxTokens: 600, enableThinking: false);
+    expect(noThinking['max_tokens'], 600);
+    expect(noThinking['chat_template_kwargs'], {'enable_thinking': false});
+  });
+
+  test('streamChat mengirim max_tokens ke server dan meneruskan finish_reason length', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    Map? received;
+    server.listen((req) async {
+      received = jsonDecode(await utf8.decoder.bind(req).join()) as Map;
+      req.response.headers.contentType = ContentType('text', 'event-stream');
+      req.response.write('data: ${jsonEncode({
+            'choices': [
+              {
+                'delta': {'reasoning_content': 'mikir terus'},
+                'finish_reason': 'length'
+              }
+            ]
+          })}\n\ndata: [DONE]\n\n');
+      await req.response.close();
+    });
+
+    final llm = LlmService(clientFactory: () => _RewriteClient(server.port));
+    final deltas = await llm.streamChat([
+      {'role': 'user', 'content': 'halo'}
+    ], maxTokens: 1500).stream.toList();
+    expect(received!['max_tokens'], 1500);
+    expect(deltas.last.finishReason, 'length');
+    expect(deltas.map((d) => d.content).join(), isEmpty);
+    await server.close(force: true);
+  });
+
   test('parseEmbeddings mengurutkan berdasarkan index', () {
     final body = jsonEncode({
       'data': [
